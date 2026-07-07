@@ -1,0 +1,37 @@
+#!/bin/bash
+### 卸载后回调
+
+# ===== 路径解析（统一模板）=====
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    SHARE_LOG_DIR="${_SHARE_BASE}/logs"
+else
+    SHARE_LOG_DIR=""
+fi
+
+# 日志目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_LOG_DIR" ]; then
+    LOG_DIR="$SHARE_LOG_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+
+mkdir -p "$LOG_DIR"
+LOG="${LOG_DIR}/uninstall.log"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === UNINSTALL CALLBACK ===" >> "$LOG"
+echo "  卸载后回调开始" >> "$LOG"
+echo "  卸载模式: ${wizard_uninstall_mode:-keep_db}" >> "$LOG"
+
+if [ "$wizard_uninstall_mode" = "delete_db" ]; then
+    echo "  用户选择删除所有数据" >> "$LOG"
+else
+    echo "  用户选择保留数据" >> "$LOG"
+fi
+
+echo "  应用卸载完成" >> "$LOG"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] uninstall_callback done" >> "$LOG"
+echo "" >> "$LOG"
+exit 0
