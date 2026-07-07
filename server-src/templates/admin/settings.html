@@ -1,0 +1,55 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>系统设置 - 管理后台</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        {{template "partials/admin_sidebar.html" dict "activeTab" "settings" "appName" .appName}}
+
+        <div class="admin-main">
+            {{template "partials/admin_header.html" dict "title" .title "breadcrumbFirst" "系统管理" "nickname" .nickname "userAvatar" .userAvatar}}
+
+            <main class="admin-content">
+                {{if .error}}<div class="alert alert-error">{{.error}}</div>{{end}}
+                {{if .success}}<div class="alert alert-success">设置已保存</div>{{end}}
+
+                <div class="admin-page-title">
+                    <span>系统设置</span>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-header"><h3>常规设置</h3></div>
+                    <div class="admin-card-body">
+                        <form method="post" class="admin-form" action="/admin/settings">
+                            <div class="form-item">
+                                <label class="form-label">应用名称</label>
+                                <input type="text" class="form-input" name="appName" value="{{.appName}}">
+                            </div>
+                            <div class="form-item">
+                                <label class="form-label">版权信息</label>
+                                <input type="text" class="form-input" name="copyright" value="{{.copyright}}">
+                            </div>
+                            <div class="form-item">
+                                <label class="form-label">是否允许注册</label>
+                                <select class="form-select" name="allow_register">
+                                    <option value="true" {{if .allowRegister}}selected{{end}}>允许</option>
+                                    <option value="false" {{if not .allowRegister}}selected{{end}}>禁止</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">保存设置</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

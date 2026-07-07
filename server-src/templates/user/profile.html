@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>个人资料 - {{.appName}}</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <link rel="stylesheet" href="/static/css/profile.css">
+</head>
+<body>
+    {{template "partials/header.html" dict "appName" .appName "active" "profile"}}
+
+    <div class="main">
+        {{if .success}}<div class="alert alert-success">操作成功</div>{{end}}
+        {{if .error}}<div class="alert alert-error">{{.error}}</div>{{end}}
+
+        <div class="profile-section">
+            <div class="card">
+                <div class="card-header"><h3>基本信息</h3></div>
+                <div class="card-body">
+                    <form method="post" action="/user/profile" class="profile-form">
+                        <div class="profile-info-row">
+                            <div class="profile-avatar">
+                                {{if .user.Avatar}}
+                                    <img src="{{.user.Avatar}}" alt="avatar">
+                                {{else}}
+                                    <span>{{.avatarInitial}}</span>
+                                {{end}}
+                            </div>
+                            <div class="profile-info">
+                                <div class="profile-info-item">
+                                    <span class="profile-info-label">用户名</span>
+                                    <span class="profile-info-value">{{.user.Username}}</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <span class="profile-info-label">角色</span>
+                                    <span class="profile-info-value">{{if eq .user.Role "admin"}}管理员{{else}}普通用户{{end}}</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <span class="profile-info-label">注册时间</span>
+                                    <span class="profile-info-value">{{formatDate .user.CreatedAt "2006-01-02"}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-item">
+                            <label class="form-label">昵称</label>
+                            <input type="text" class="form-input" name="nickname" value="{{.user.Nickname}}" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存修改</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <div class="card">
+                <div class="card-header"><h3>修改密码</h3></div>
+                <div class="card-body">
+                    <form method="post" action="/user/password" class="profile-form">
+                        <div class="form-item">
+                            <label class="form-label">当前密码</label>
+                            <input type="password" class="form-input" name="oldPassword" required>
+                        </div>
+                        <div class="form-item">
+                            <label class="form-label">新密码</label>
+                            <input type="password" class="form-input" name="newPassword" required minlength="6">
+                        </div>
+                        <div class="form-item">
+                            <label class="form-label">确认新密码</label>
+                            <input type="password" class="form-input" name="confirmPassword" required minlength="6">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">修改密码</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <div class="card">
+                <div class="card-header"><h3>头像设置</h3></div>
+                <div class="card-body">
+                    <form method="post" action="/user/avatar" enctype="multipart/form-data" class="profile-form">
+                        <div class="form-item">
+                            <label class="form-label">上传头像</label>
+                            <input type="file" class="form-input" name="avatar" accept="image/jpeg,image/png,image/gif">
+                            <p style="font-size:.78rem;color:var(--c-text-muted);margin-top:4px;">支持 JPG、PNG、GIF 格式，大小不超过 2MB</p>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">上传头像</button>
+                            <button type="button" class="btn btn-outline" onclick="clearAvatar()">清除头像</button>
+                        </div>
+                    </form>
+                    <form method="post" action="/user/avatar/clear" id="clearAvatarForm" style="display:none;"></form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function clearAvatar() {
+            if (!confirm('确定要清除头像吗？')) return;
+            document.getElementById('clearAvatarForm').submit();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{if .room}}编辑房间{{else}}添加房间{{end}} - 管理后台</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        {{template "partials/admin_sidebar.html" dict "activeTab" "rooms" "appName" .appName}}
+
+        <div class="admin-main">
+            {{template "partials/admin_header.html" dict "title" .title "breadcrumbFirst" "内容管理" "nickname" .nickname "userAvatar" .userAvatar}}
+
+            <main class="admin-content">
+                <div class="admin-page-title">
+                    <span>{{if .room}}编辑房间{{else}}添加房间{{end}}</span>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-body">
+                        {{if .error}}<div class="alert alert-error">{{.error}}</div>{{end}}
+                        <form method="post" class="admin-form" action="{{if .room}}/admin/rooms/{{.room.ID}}/edit{{else}}/admin/rooms/new{{end}}">
+                            <div class="form-item">
+                                <label class="form-label">房间名称</label>
+                                <input type="text" class="form-input" name="name" value="{{if .room}}{{.room.Name}}{{end}}" required>
+                            </div>
+                            <div class="form-item">
+                                <label class="form-label">描述</label>
+                                <textarea class="form-textarea" name="description" rows="3">{{if .room}}{{.room.Description}}{{end}}</textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">{{if .room}}保存{{else}}创建{{end}}</button>
+                                <a href="/admin/rooms" class="btn btn-default">取消</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

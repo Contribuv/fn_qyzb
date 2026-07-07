@@ -1,0 +1,102 @@
+name: Build Go Binaries for fnOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号'
+        required: false
+        default: 'dev'
+  push:
+    tags:
+      - 'v*'
+
+env:
+  GO_VERSION: 'stable'
+
+jobs:
+  build:
+    name: Build linux-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+            output_name: fn_qyzb-server-amd64
+          - arch: arm64
+            goarch: arm64
+            output_name: fn_qyzb-server-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build binary
+        working-directory: server-src
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+          VERSION="${{ github.event.inputs.version }}-${GIT_COMMIT}"
+          echo "Building version=$VERSION buildtime=$BUILD_TIME commit=$GIT_COMMIT"
+          go build \
+            -ldflags="-s -w -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT}" \
+            -o ../dist/${{ matrix.output_name }} \
+            ./cmd/server
+
+      - name: Build rproxy
+        working-directory: server-src/rproxy
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          RPROXY_NAME="qyzb-rproxy-${{ matrix.goarch }}"
+          echo "Building rproxy: $RPROXY_NAME"
+          go build -ldflags="-s -w" -o ../../dist/${RPROXY_NAME} .
+          chmod +x ../../dist/${RPROXY_NAME}
+
+      - name: Verify binary
+        run: |
+          ls -lh dist/
+          file dist/${{ matrix.output_name }}
+          file dist/qyzb-rproxy-${{ matrix.goarch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.arch }}
+          path: dist/
+          retention-days: 30
+
+  release:
+    name: Collect all artifacts
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: |
+          ls -lh dist/
+
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fn_qyzb-all-binaries
+          path: dist/
+          retention-days: 30

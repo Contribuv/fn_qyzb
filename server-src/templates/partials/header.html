@@ -1,0 +1,20 @@
+<div class="topbar">
+    <div class="topbar-inner">
+        <a href="/room" class="topbar-brand">
+            {{.appName}}
+        </a>
+        <div class="topbar-actions">
+            {{if eq .active "room"}}
+            <a href="/user/profile" class="topbar-link">个人资料</a>
+            <a href="/room/logout" class="topbar-link" style="color:var(--c-danger)">退出</a>
+            {{else if eq .active "chat"}}
+            <a href="/room" class="topbar-link">房间列表</a>
+            <a href="/user/profile" class="topbar-link">{{.nickname}}</a>
+            <a href="/room/logout" class="topbar-link" style="color:var(--c-danger)">退出</a>
+            {{else if eq .active "profile"}}
+            <a href="/room" class="topbar-link">房间列表</a>
+            <a href="/room/logout" class="topbar-link" style="color:var(--c-danger)">退出</a>
+            {{end}}
+        </div>
+    </div>
+</div>

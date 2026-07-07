@@ -1,0 +1,27 @@
+#!/bin/bash
+### 配置修改前回调
+
+# ---- Node.js 运行时环境 ----
+NODE_RUNTIME="/var/apps/nodejs_v22/target/bin"
+if [ -d "$NODE_RUNTIME" ]; then
+    export PATH="${NODE_RUNTIME}:$PATH"
+fi
+
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    LOG_DIR="${_SHARE_BASE}/logs"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+mkdir -p "$LOG_DIR"
+LOG="${LOG_DIR}/config.log"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === CONFIG INIT ===" >> "$LOG"
+echo "  配置修改前回调开始" >> "$LOG"
+env | grep -E "^TRIM_|^wizard_" | sort >> "$LOG" 2>/dev/null || true
+echo "  配置修改前回调完成" >> "$LOG"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] config_init done" >> "$LOG"
+echo "" >> "$LOG"
+exit 0

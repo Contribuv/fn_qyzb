@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{.room.Name}} - {{.appName}}</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body class="chat-page" data-room-id="{{.room.ID}}" data-user-id="{{.userId}}" data-nickname="{{.nickname}}" data-avatar="{{.avatar}}">
+    {{template "partials/header.html" dict "appName" .appName "active" "chat" "nickname" .nickname}}
+
+    <div id="sidebarMask"></div>
+
+    <div class="chat-page-wrap">
+        <div class="chat-container">
+            <div class="chat-sidebar" id="chatSidebar">
+                <div class="sidebar-head">
+                    <a href="/room" class="back-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    </a>
+                    <span class="title">{{.appName}}</span>
+                </div>
+                <div class="sidebar-room-info">
+                    <div class="sidebar-room-avatar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <h3>{{.room.Name}}</h3>
+                    {{if .room.Description}}<p>{{.room.Description}}</p>{{end}}
+                </div>
+                <div class="sidebar-actions">
+                    <button class="btn btn-outline btn-sm" id="clearScreenBtn">清屏</button>
+                    {{if .isAdmin}}<button class="btn btn-outline btn-danger btn-sm" id="clearHistoryBtn">清空</button>{{end}}
+                </div>
+                <div class="sidebar-online">
+                    <div class="section-label">
+                        在线 <span class="online-badge" id="onlineCount">0</span>
+                    </div>
+                    <div id="onlineList"></div>
+                </div>
+            </div>
+
+            <div class="chat-main">
+                <div class="chat-main-header">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <span class="room-title">{{.room.Name}}</span>
+                </div>
+
+                <div class="chat-messages" id="messages">
+                    <div class="empty-state" style="padding:60px 0;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <p>暂无消息，发送第一条消息吧</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="chat-input-row">
+                        <textarea id="messageInput" placeholder="输入消息..." rows="1"></textarea>
+                        <button class="send-btn" id="sendBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var body = document.body;
+        var roomId = parseInt(body.getAttribute('data-room-id'), 10);
+        var myUserId = parseInt(body.getAttribute('data-user-id'), 10);
+        var myNickname = body.getAttribute('data-nickname');
+        var myAvatar = body.getAttribute('data-avatar') || '/static/images/avatar.png';
+
+        var ws;
+        var messages = document.getElementById('messages');
+        var onlineList = document.getElementById('onlineList');
+        var onlineCount = document.getElementById('onlineCount');
+        var messageInput = document.getElementById('messageInput');
+        var sendBtn = document.getElementById('sendBtn');
+        var sidebarToggle = document.getElementById('sidebarToggle');
+        var chatSidebar = document.getElementById('chatSidebar');
+        var sidebarMask = document.getElementById('sidebarMask');
+        var clearScreenBtn = document.getElementById('clearScreenBtn');
+        var clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        function connect() {
+            var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(protocol + '//' + location.host + '/ws/chat?room_id=' + roomId + '&user_id=' + myUserId + '&nickname=' + encodeURIComponent(myNickname));
+
+            ws.onopen = function() {
+                console.log('已连接');
+                loadHistory();
+            };
+            ws.onclose = function() { setTimeout(connect, 2000); };
+            ws.onerror = function(e) { console.error('连接错误', e); };
+
+            ws.onmessage = function(e) {
+                try {
+                    var raw = JSON.parse(e.data);
+                    var msgType = raw.type;
+                    var payload = raw.data;
+                    if (msgType === 'message') {
+                        addMessage(payload);
+                    } else if (msgType === 'onlineUsers') {
+                        renderOnline(payload || []);
+                    }
+                } catch(err) { console.error(err); }
+            };
+        }
+
+        function loadHistory() {
+            fetch('/api/room/' + roomId + '/latest-messages')
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    var list = res.data || res.messages || res || [];
+                    if (!list.length) return;
+                    messages.innerHTML = '';
+                    list.forEach(function(m) { addMessage(m); });
+                    messages.scrollTop = messages.scrollHeight;
+                })
+                .catch(function(err) { console.error('加载历史失败', err); });
+        }
+
+        function addMessage(msg) {
+            var empty = messages.querySelector('.empty-state');
+            if (empty) messages.innerHTML = '';
+            var isSelf = msg.user_id == myUserId;
+            var div = document.createElement('div');
+            div.className = 'msg' + (isSelf ? ' self' : '');
+            var avatarUrl = msg.avatar || '/static/images/avatar.png';
+            var initial = (msg.nickname || '?').charAt(0);
+            var timeStr = msg.created_at || '';
+            if (timeStr) {
+                try {
+                    var d = new Date(timeStr);
+                    timeStr = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                } catch(e) {}
+            }
+            div.innerHTML = '<div class="msg-avatar"><img src="' + escapeHtml(avatarUrl) + '" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><span style="display:none">' + initial + '</span></div>' +
+                '<div class="msg-body">' +
+                    '<div class="msg-meta"><span class="name">' + escapeHtml(msg.nickname) + '</span>' + escapeHtml(timeStr) + '</div>' +
+                    '<div class="msg-content">' + formatMessage(msg.content) + '</div>' +
+                '</div>';
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+        function renderOnline(users) {
+            var filteredUsers = users.filter(function(u) {
+                return parseInt(u.user_id, 10) !== myUserId;
+            });
+            onlineCount.textContent = filteredUsers.length;
+            if (filteredUsers.length === 0) {
+                onlineList.innerHTML = '<div style="font-size:.72rem;color:var(--c-text-muted);text-align:center;padding:20px 0;">暂无在线用户</div>';
+                return;
+            }
+            onlineList.innerHTML = filteredUsers.map(function(u) {
+                var avatarUrl = u.avatar || '/static/images/avatar.png';
+                var initial = (u.nickname || '?').charAt(0);
+                return '<div class="online-user" data-user-id="' + u.user_id + '" data-nickname="' + escapeHtml(u.nickname) + '"><span class="online-user-avatar"><img src="' + escapeHtml(avatarUrl) + '" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><span style="display:none">' + initial + '</span></span><span class="online-user-name">' + escapeHtml(u.nickname) + '</span></div>';
+            }).join('');
+            onlineList.querySelectorAll('.online-user').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    var nickname = el.getAttribute('data-nickname');
+                    var userId = parseInt(el.getAttribute('data-user-id'), 10);
+                    if (userId === myUserId) return;
+                    insertMention(nickname, userId);
+                    if (chatSidebar.classList.contains('show')) {
+                        chatSidebar.classList.remove('show');
+                        sidebarMask.classList.remove('show');
+                    }
+                });
+            });
+        }
+
+        function insertMention(nickname, userId) {
+            if (parseInt(userId, 10) === myUserId) return;
+            var mentionText = '@' + nickname + ' ';
+            var content = messageInput.value;
+            var pattern = new RegExp('@' + nickname.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '(\\s|$)', 'g');
+            if (pattern.test(content)) return;
+            var endPos = messageInput.selectionEnd;
+            var before = content.substring(0, endPos);
+            var after = content.substring(endPos);
+            messageInput.value = before + mentionText + after;
+            var newPos = endPos + mentionText.length;
+            messageInput.focus();
+            messageInput.setSelectionRange(newPos, newPos);
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 100) + 'px';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function formatMessage(text) {
+            var html = escapeHtml(text);
+            html = html.replace(/(@\S+)/g, '<span class="mention">$1</span>');
+            return html;
+        }
+
+        function sendMessage() {
+            var content = messageInput.value.trim();
+            if (!content) return;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'message', data: { content: content } }));
+            }
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+        }
+
+        function clearScreen() {
+            if (!confirm('确定要清屏吗？（仅清除本地显示，不删除服务器记录）')) return;
+            messages.innerHTML = '<div class="empty-state" style="padding:60px 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>屏幕已清空</p></div>';
+        }
+
+        function clearHistory() {
+            if (!confirm('确定要清除本房间所有聊天记录吗？此操作不可撤销！')) return;
+            fetch('/api/room/' + roomId + '/messages', { method: 'DELETE' })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success) {
+                        messages.innerHTML = '<div class="empty-state" style="padding:60px 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>聊天记录已清除</p></div>';
+                    } else {
+                        alert(res.message || '清除失败');
+                    }
+                })
+                .catch(function() { alert('清除失败'); });
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        });
+        messageInput.addEventListener('input', function() {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 100) + 'px';
+        });
+
+        sidebarToggle.addEventListener('click', function() {
+            chatSidebar.classList.toggle('show');
+            sidebarMask.classList.toggle('show');
+        });
+        sidebarMask.addEventListener('click', function() {
+            chatSidebar.classList.remove('show');
+            sidebarMask.classList.remove('show');
+        });
+
+        clearScreenBtn.addEventListener('click', clearScreen);
+        if (clearHistoryBtn) { clearHistoryBtn.addEventListener('click', clearHistory); }
+
+        connect();
+    </script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>用户管理 - 管理后台</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        {{template "partials/admin_sidebar.html" dict "activeTab" "users" "appName" .appName}}
+
+        <div class="admin-main">
+            {{template "partials/admin_header.html" dict "title" .title "userAvatar" .userAvatar "nickname" .nickname "breadcrumbFirst" "系统管理"}}
+
+            <main class="admin-content">
+                {{if .error}}
+                <div class="alert alert-error">{{.error}}</div>
+                {{end}}
+                {{if .success}}
+                <div class="alert alert-success">{{.success}}</div>
+                {{end}}
+
+                <div class="admin-page-title">
+                    <span>用户管理</span>
+                    <div class="actions">
+                        <a href="/admin/users/new" class="btn btn-primary">+ 添加用户</a>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px"></th>
+                                <th style="width:60px">ID</th>
+                                <th>用户名</th>
+                                <th>昵称</th>
+                                <th style="width:80px">角色</th>
+                                <th style="width:160px">创建时间</th>
+                                <th class="col-opt">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .users}}
+                            <tr>
+                                <td data-label="">
+                                    <div class="admin-table-avatar">
+                                        <img src="{{.Avatar}}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                        <span style="display:none">{{slice 0 1 .Username}}</span>
+                                    </div>
+                                </td>
+                                <td data-label="ID">{{.ID}}</td>
+                                <td data-label="用户名">{{.Username}}</td>
+                                <td data-label="昵称">{{.Nickname}}</td>
+                                <td data-label="角色">
+                                    <span class="admin-badge {{if eq .Role "admin"}}admin{{else}}user{{end}}">
+                                        {{if eq .Role "admin"}}管理员{{else}}普通用户{{end}}
+                                    </span>
+                                </td>
+                                <td data-label="创建时间">{{formatDate .CreatedAt "2006-01-02 15:04"}}</td>
+                                <td class="col-opt" data-label="操作">
+                                    <a href="/admin/users/{{.ID}}/edit" class="btn btn-default btn-sm">编辑</a>
+                                    <button data-id="{{.ID}}" data-name="{{.Username}}" class="btn btn-danger btn-sm btn-delete">删除</button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                    {{if not .users}}
+                    <div class="admin-empty">暂无用户数据</div>
+                    {{end}}
+
+                    <div class="admin-pagination">
+                        <div class="admin-pagination-info">共 {{.total}} 条，第 {{.page}} / {{.totalPages}} 页</div>
+                        <div class="admin-pagination-controls">
+                            <select class="page-size-select" onchange="changePageSize(this.value)">
+                                <option value="10" {{if eq .pageSize 10}}selected{{end}}>10 条/页</option>
+                                <option value="20" {{if eq .pageSize 20}}selected{{end}}>20 条/页</option>
+                                <option value="50" {{if eq .pageSize 50}}selected{{end}}>50 条/页</option>
+                                <option value="100" {{if eq .pageSize 100}}selected{{end}}>100 条/页</option>
+                            </select>
+                            <a href="/admin/users?page=1&pageSize={{.pageSize}}" class="page-btn" {{if eq .page 1}}disabled style="pointer-events:none"{{end}}>首页</a>
+                            <a href="/admin/users?page={{sub .page 1}}&pageSize={{.pageSize}}" class="page-btn" {{if eq .page 1}}disabled style="pointer-events:none"{{end}}>上一页</a>
+                            {{range $p := pageList .page .totalPages}}
+                            <a href="/admin/users?page={{$p}}&pageSize={{$.pageSize}}" class="page-btn {{if eq $p $.page}}active{{end}}">{{$p}}</a>
+                            {{end}}
+                            <a href="/admin/users?page={{add .page 1}}&pageSize={{.pageSize}}" class="page-btn" {{if ge .page .totalPages}}disabled style="pointer-events:none"{{end}}>下一页</a>
+                            <a href="/admin/users?page={{.totalPages}}&pageSize={{.pageSize}}" class="page-btn" {{if ge .page .totalPages}}disabled style="pointer-events:none"{{end}}>末页</a>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script>
+        function showToast(msg) {
+            var t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(function() { t.classList.remove('show'); }, 2000);
+        }
+        function changePageSize(size) {
+            window.location.href = '/admin/users?page=1&pageSize=' + size;
+        }
+        document.querySelectorAll('.btn-delete').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = btn.getAttribute('data-id');
+                var name = btn.getAttribute('data-name');
+                if (!confirm('确定要删除用户 "' + name + '" 吗？此操作不可撤销。')) return;
+                window.location.href = '/admin/users/' + id + '/delete';
+            });
+        });
+    </script>
+</body>
+</html>

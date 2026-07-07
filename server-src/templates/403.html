@@ -1,0 +1,21 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{.title}} - {{.appName}}</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f6f8;">
+            <div style="text-align:center;">
+                <h1 style="font-size:72px;color:#ff4d4f;margin-bottom:16px;">403</h1>
+                <p style="font-size:18px;color:#595959;margin-bottom:24px;">{{if .message}}{{.message}}{{else}}无访问权限{{end}}</p>
+                <a href="/" class="btn btn-primary">返回首页</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

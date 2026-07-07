@@ -1,0 +1,317 @@
+#!/bin/bash
+# ============================================================
+# 千盈助播 - 生命周期管理脚本 (Go 版本)
+# fnOS Native App: cmd/main
+# 参考: https://developer.fnnas.com/docs/core-concepts/framework
+# ============================================================
+
+VAR_DIR="${TRIM_PKGVAR}"
+PID_FILE="${VAR_DIR}/app.pid"
+APP_DIR="${TRIM_APPDEST}/server"
+
+# ===== 路径解析（统一模板）=====
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    SHARE_LOG_DIR="${_SHARE_BASE}/logs"
+    SHARE_UPLOAD_DIR="${_SHARE_BASE}/uploads"
+else
+    SHARE_LOG_DIR=""
+    SHARE_UPLOAD_DIR=""
+fi
+
+# 日志目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_LOG_DIR" ]; then
+    LOG_DIR="$SHARE_LOG_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+
+# 数据目录（数据库等）：始终在 PKGVAR 下
+if [ -n "$TRIM_PKGVAR" ]; then
+    DATA_DIR="${TRIM_PKGVAR}/data"
+else
+    DATA_DIR="/tmp/fn_qyzb/data"
+fi
+
+# 上传目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_UPLOAD_DIR" ]; then
+    UPLOAD_DIR="$SHARE_UPLOAD_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    UPLOAD_DIR="${TRIM_PKGVAR}/uploads"
+else
+    UPLOAD_DIR="/tmp/fn_qyzb/uploads"
+fi
+
+export DB_PATH="${DATA_DIR}/qyzb.db"
+export UPLOAD_DIR
+
+mkdir -p "$DATA_DIR" 2>/dev/null || true
+mkdir -p "$UPLOAD_DIR" 2>/dev/null || true
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+
+# 读取安装配置（保存了 wizard 变量）
+INSTALL_CONF="${DATA_DIR}/install.conf"
+if [ -f "$INSTALL_CONF" ]; then
+    source "$INSTALL_CONF"
+fi
+
+# 应用端口：优先安装配置，再回退 wizard 变量，最后默认 3008
+if [ -n "$WIZARD_APP_PORT" ]; then
+    APP_PORT="$WIZARD_APP_PORT"
+elif [ -n "$wizard_app_port" ]; then
+    APP_PORT="$wizard_app_port"
+else
+    APP_PORT="3008"
+fi
+export PORT="${APP_PORT}"
+
+APP_LOG="${LOG_DIR}/app.log"
+DEBUG_LOG="${LOG_DIR}/debug.log"
+mkdir -p "$(dirname "$APP_LOG")" 2>/dev/null || true
+
+# 检测架构
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64) BIN_NAME="fn_qyzb-server-amd64" ;;
+    aarch64) BIN_NAME="fn_qyzb-server-arm64" ;;
+    *) BIN_NAME="fn_qyzb-server-amd64" ;;
+esac
+SERVER_BIN="${APP_DIR}/${BIN_NAME}"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$APP_LOG"
+}
+
+fatal() {
+    log "FATAL: $*"
+    [ -n "$TRIM_TEMP_LOGFILE" ] && echo "FATAL: $*" >> "$TRIM_TEMP_LOGFILE"
+    exit 1
+}
+
+detect_rproxy() {
+    RPX_DIR="${TRIM_APPDEST}/rproxy"
+    case "$ARCH" in
+        x86_64) RPX_BIN="${RPX_DIR}/qyzb-rproxy-amd64" ;;
+        aarch64) RPX_BIN="${RPX_DIR}/qyzb-rproxy-arm64" ;;
+        *) RPX_BIN="${RPX_DIR}/qyzb-rproxy-amd64" ;;
+    esac
+    if [ -f "$RPX_BIN" ] && [ ! -x "$RPX_BIN" ]; then
+        chmod +x "$RPX_BIN" 2>/dev/null || true
+    fi
+    if [ -x "$RPX_BIN" ]; then
+        export RPROXY_BIN_PATH="$RPX_BIN"
+        return 0
+    fi
+    return 1
+}
+
+start() {
+    log "=== START ==="
+
+    if [ -f "$PID_FILE" ]; then
+        OLD=$(cat "$PID_FILE")
+        if kill -0 "$OLD" 2>/dev/null; then
+            log "进程已在运行 (PID=$OLD)"
+            exit 0
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    log "[1/6] 检测二进制文件..."
+    if [ ! -x "$SERVER_BIN" ]; then
+        chmod +x "$SERVER_BIN" 2>/dev/null || true
+    fi
+    if [ ! -x "$SERVER_BIN" ]; then
+        fatal "二进制文件不存在或不可执行: $SERVER_BIN"
+    fi
+    log "  架构: $ARCH"
+    log "  二进制: $BIN_NAME"
+
+    log "[2/6] 配置数据库..."
+    log "  数据库路径: $DB_PATH"
+
+    log "[3/6] 配置管理员账号..."
+    if [ -n "$WIZARD_ADMIN_USER" ]; then
+        _admin_user="$WIZARD_ADMIN_USER"
+    elif [ -n "$wizard_admin_user" ]; then
+        _admin_user="$wizard_admin_user"
+    else
+        _admin_user="admin"
+    fi
+    if [ -n "$WIZARD_ADMIN_PASS" ]; then
+        _admin_pass="$WIZARD_ADMIN_PASS"
+    elif [ -n "$wizard_admin_pass" ]; then
+        _admin_pass="$wizard_admin_pass"
+    else
+        _admin_pass="admin123"
+    fi
+    export ADMIN_USERNAME="${_admin_user}"
+    export ADMIN_PASSWORD="${_admin_pass}"
+    log "  管理员账号: ${ADMIN_USERNAME}"
+
+    log "[4/6] 配置会话密钥..."
+    if [ -n "$WIZARD_SESSION_SECRET" ]; then
+        export SESSION_SECRET="$WIZARD_SESSION_SECRET"
+    elif [ -n "$wizard_session_secret" ]; then
+        export SESSION_SECRET="$wizard_session_secret"
+    else
+        export SESSION_SECRET="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32)"
+    fi
+
+    log "[5/6] 检测 Go 反向代理..."
+    if detect_rproxy; then
+        log "  Go 反代可用: $RPX_BIN"
+    else
+        log "  Go 反代未找到"
+    fi
+
+    log "[6/6] 配置统一网关..."
+    GATEWAY_SOCK_PATH=""
+    GATEWAY_PREFIX="/app/fn_qyzb"
+
+    # 官方文档: 网关转发到 /var/apps/{appname}/target/{gatewaySocket}
+    # /var/apps/fn_qyzb/ 通常是到 ${TRIM_APPDEST}/target/ 的符号链接
+    # 所以网关查找路径 /var/apps/fn_qyzb/target/app.sock 实际解析为
+    # ${TRIM_APPDEST}/target/target/app.sock
+    # 直接在网关查找的路径创建 socket，避免路径不匹配
+    VAR_APPS_SOCK="/var/apps/fn_qyzb/target/app.sock"
+    VAR_APPS_DIR="$(dirname "$VAR_APPS_SOCK")"
+    mkdir -p "$VAR_APPS_DIR" 2>/dev/null || true
+    if [ -w "$VAR_APPS_DIR" ]; then
+        GATEWAY_SOCK_PATH="$VAR_APPS_SOCK"
+        export GATEWAY_SOCKET="$GATEWAY_SOCK_PATH"
+        export GATEWAY_PREFIX="$GATEWAY_PREFIX"
+        log "  统一网关: ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
+    else
+        log "  INFO: $VAR_APPS_DIR 不可写，回退到 TRIM_APPDEST"
+        if [ -n "$TRIM_APPDEST" ] && [ -d "$TRIM_APPDEST" ]; then
+            TARGET_DIR="${TRIM_APPDEST}/target"
+            mkdir -p "$TARGET_DIR" 2>/dev/null || true
+            if [ -w "$TARGET_DIR" ]; then
+                GATEWAY_SOCK_PATH="${TARGET_DIR}/app.sock"
+                export GATEWAY_SOCKET="$GATEWAY_SOCK_PATH"
+                log "  统一网关(回退): ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
+            else
+                log "  INFO: target 目录不可写，跳过统一网关"
+            fi
+        fi
+    fi
+
+    log "启动服务..."
+    log "  监听端口: ${APP_PORT}"
+    log "  日志目录: ${LOG_DIR}"
+    log "  上传目录: ${UPLOAD_DIR}"
+
+    cd "$APP_DIR" || fatal "无法进入应用目录: $APP_DIR"
+
+    nohup "$SERVER_BIN" >> "$DEBUG_LOG" 2>&1 &
+    SERVER_PID=$!
+    echo "$SERVER_PID" > "$PID_FILE"
+
+    sleep 1
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+        rm -f "$PID_FILE"
+        log "  启动失败日志:"
+        tail -20 "$DEBUG_LOG" | tee -a "$APP_LOG"
+        fatal "进程启动失败!"
+    fi
+
+    sleep 2
+    if kill -0 "$SERVER_PID" 2>/dev/null; then
+        log "  PID=$SERVER_PID"
+        log "=== 启动成功! 端口 ${APP_PORT} ==="
+        exit 0
+    else
+        rm -f "$PID_FILE"
+        fatal "进程 3s 内退出!"
+    fi
+}
+
+stop() {
+    log "=== STOP ==="
+
+    log "[1/3] 停止反向代理..."
+    if detect_rproxy; then
+        RPX_CONFIG="${TRIM_APPDEST}/data/rproxy-config.json"
+        if [ -f "$RPX_CONFIG" ]; then
+            RPX_API_PORT=$(grep -o '"api_port":[0-9]*' "$RPX_CONFIG" | grep -o '[0-9]*')
+            if [ -n "$RPX_API_PORT" ] && [ "$RPX_API_PORT" -gt 0 ] 2>/dev/null; then
+                curl -s -X POST "http://127.0.0.1:${RPX_API_PORT}/stop" 2>/dev/null && log "  反代已停止 (API方式)"
+            fi
+        fi
+        RPX_PROC=$(pgrep -f "qyzb-rproxy" 2>/dev/null || true)
+        if [ -n "$RPX_PROC" ]; then
+            kill "$RPX_PROC" 2>/dev/null
+            sleep 1
+            if kill -0 "$RPX_PROC" 2>/dev/null; then
+                kill -9 "$RPX_PROC" 2>/dev/null
+            fi
+            log "  反代进程已清理 (PID=$RPX_PROC)"
+        fi
+    fi
+
+    log "[2/3] 停止主服务..."
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            kill "$PID" 2>/dev/null
+            sleep 2
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -9 "$PID" 2>/dev/null
+            fi
+            log "  进程已停止 (PID=$PID)"
+        else
+            log "  进程不存在"
+        fi
+        rm -f "$PID_FILE"
+    else
+        log "  没有运行中的进程"
+    fi
+
+    log "[3/3] 清理 socket 文件..."
+    if [ -n "$GATEWAY_SOCK_PATH" ] && [ -S "$GATEWAY_SOCK_PATH" ]; then
+        rm -f "$GATEWAY_SOCK_PATH"
+    fi
+
+    # 清理可能残留的旧路径 socket
+    rm -f "/var/apps/fn_qyzb/target/app.sock" 2>/dev/null || true
+    rm -f "${TRIM_APPDEST}/target/app.sock" 2>/dev/null || true
+
+    log "停止完成"
+    exit 0
+}
+
+status() {
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        exit 0
+    fi
+    ss -tlnp 2>/dev/null | grep -q ":${APP_PORT}" && exit 0
+    if [ -n "$TRIM_APPDEST" ] && [ -S "${TRIM_APPDEST}/target/app.sock" ]; then
+        exit 0
+    fi
+    exit 3
+}
+
+uninstall() {
+    log "=== UNINSTALL ==="
+    stop
+    log "卸载完成"
+    exit 0
+}
+
+upgrade() {
+    log "=== UPGRADE ==="
+    stop
+    start
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    status) status ;;
+    uninstall) uninstall ;;
+    upgrade) upgrade ;;
+    *) echo "用法: $0 {start|stop|status|uninstall|upgrade}" ; exit 1 ;;
+esac

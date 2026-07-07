@@ -1,0 +1,134 @@
+.main {
+    padding: 24px 16px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.alert {
+    padding: 10px 14px;
+    border-radius: var(--br);
+    margin-bottom: 16px;
+    font-size: .85rem;
+}
+
+.alert-success {
+    background: var(--c-success-light);
+    color: var(--c-success);
+    border: 1px solid #bbf7d0;
+}
+
+.alert-error {
+    background: #fef2f2;
+    color: var(--c-danger);
+    border: 1px solid #fecaca;
+}
+
+.profile-section {
+    margin-bottom: 20px;
+}
+
+.profile-form { width: 100%; }
+
+.profile-info-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+.profile-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--c-primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.profile-info-label {
+    font-size: .82rem;
+    color: var(--c-text-muted);
+    width: 72px;
+    flex-shrink: 0;
+}
+
+.profile-info-value {
+    font-size: .88rem;
+    color: var(--c-text);
+    font-weight: 500;
+}
+
+.form-item {
+    margin-bottom: 14px;
+}
+
+.form-label {
+    display: block;
+    font-size: .82rem;
+    color: var(--c-text-soft);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.form-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--br);
+    font-size: .88rem;
+    background: var(--c-white);
+    transition: all .15s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 2px rgba(37,99,235,.1);
+}
+
+input[type="file"].form-input {
+    padding: 7px;
+    background: var(--c-gray-50);
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+    .main { padding: 16px 12px; }
+    .profile-info-row { flex-direction: column; text-align: center; gap: 12px; }
+    .profile-info-item { justify-content: center; }
+    .form-actions { flex-direction: column; }
+    .form-actions .btn { width: 100%; }
+}

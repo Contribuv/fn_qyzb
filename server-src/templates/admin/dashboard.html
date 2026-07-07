@@ -1,0 +1,105 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>信息面板 - 管理后台</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        {{template "partials/admin_sidebar.html" dict "activeTab" "dashboard" "appName" .appName}}
+
+        <div class="admin-main">
+            {{template "partials/admin_header.html" .}}
+
+            <main class="admin-content">
+                {{if .error}}
+                <div class="alert alert-error">{{.error}}</div>
+                {{end}}
+                {{if .success}}
+                <div class="alert alert-success">{{.success}}</div>
+                {{end}}
+
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">用户总数</div>
+                        <div class="stat-value">{{.stats.userCount}}</div>
+                        <div class="stat-sub">注册用户</div>
+                    </div>
+                    <div class="stat-card stat-green">
+                        <div class="stat-label">房间总数</div>
+                        <div class="stat-value">{{.stats.roomCount}}</div>
+                        <div class="stat-sub">可用房间</div>
+                    </div>
+                    <div class="stat-card stat-orange">
+                        <div class="stat-label">消息总数</div>
+                        <div class="stat-value">{{.stats.messageCount}}</div>
+                        <div class="stat-sub">历史消息</div>
+                    </div>
+                    <div class="stat-card stat-red">
+                        <div class="stat-label">活跃房间</div>
+                        <div class="stat-value">{{.stats.activeRooms}}</div>
+                        <div class="stat-sub">正在使用</div>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h3>应用介绍</h3>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="app-intro">
+                            <div class="intro-title">千盈助播</div>
+                            <p class="intro-desc">千盈助播是一款专业的直播间互动辅助工具，包含 Web 聊天室和桌面提词器两大核心功能，帮助主播高效管理直播互动节奏。</p>
+                            <div class="intro-features">
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                    </div>
+                                    <div class="feature-info">
+                                        <div class="feature-name">实时聊天室</div>
+                                        <div class="feature-desc">多房间管理、实时消息、历史记录留存</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7L12 12L22 7L12 2Z"/><path d="M2 17L12 22L22 17"/><path d="M2 12L12 17L22 12"/></svg>
+                                    </div>
+                                    <div class="feature-info">
+                                        <div class="feature-name">桌面提词器</div>
+                                        <div class="feature-desc">透明悬浮窗、滚动播放、可调整大小和位置</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                    </div>
+                                    <div class="feature-info">
+                                        <div class="feature-name">用户权限管理</div>
+                                        <div class="feature-desc">管理员/普通用户角色、头像昵称自定义</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="intro-download">
+                                <a href="/static/soft/助播提词器.exe" class="btn btn-primary btn-download" download>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    <span>下载提词器 (助播提词器.exe)</span>
+                                </a>
+                                <div class="download-hint">适用于 Windows 系统，下载后直接运行即可使用</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>
+        function changeMsgPageSize(size) {
+            window.location.href = '/admin?msgPage=1&msgPageSize=' + size;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<header class="admin-header">
+    <div class="admin-header-left">
+        <button class="admin-header-toggle mobile-only" onclick="toggleSidebar()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="admin-breadcrumb">
+        <span>{{if .breadcrumbFirst}}{{.breadcrumbFirst}}{{else}}首页{{end}}</span>
+        <span class="sep">/</span>
+        <span class="current">{{.title}}</span>
+    </div>
+    </div>
+    <div class="admin-header-right">
+        <div class="admin-header-user">
+            <div class="admin-header-avatar">
+                <img src="{{.userAvatar}}" alt="avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <span>{{.nickname}}</span>
+        </div>
+        <a href="/admin/logout" class="admin-header-logout">退出</a>
+    </div>
+</header>

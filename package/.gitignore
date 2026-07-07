@@ -1,0 +1,21 @@
+# 数据文件
+data/
+*.db
+*.db-journal
+*.db.bak.*
+tmp/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 打包临时文件
+*.fpk
+fnpack/
+*.log

@@ -1,0 +1,65 @@
+#!/bin/bash
+### 安装前初始化回调
+
+# ===== 路径解析（统一模板）=====
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    SHARE_LOG_DIR="${_SHARE_BASE}/logs"
+    SHARE_UPLOAD_DIR="${_SHARE_BASE}/uploads"
+else
+    SHARE_LOG_DIR=""
+    SHARE_UPLOAD_DIR=""
+fi
+
+# 日志目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_LOG_DIR" ]; then
+    LOG_DIR="$SHARE_LOG_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+
+# 数据目录（数据库等）：始终在 PKGVAR 下
+if [ -n "$TRIM_PKGVAR" ]; then
+    DATA_DIR="${TRIM_PKGVAR}/data"
+else
+    DATA_DIR="/tmp/fn_qyzb/data"
+fi
+
+# 上传目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_UPLOAD_DIR" ]; then
+    UPLOAD_DIR="$SHARE_UPLOAD_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    UPLOAD_DIR="${TRIM_PKGVAR}/uploads"
+else
+    UPLOAD_DIR="/tmp/fn_qyzb/uploads"
+fi
+
+mkdir -p "$DATA_DIR"
+mkdir -p "$LOG_DIR"
+mkdir -p "$UPLOAD_DIR"
+LOG="${LOG_DIR}/install.log"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === INSTALL INIT ===" >> "$LOG"
+echo "  安装前初始化开始" >> "$LOG"
+echo "  数据目录: ${DATA_DIR}" >> "$LOG"
+echo "  日志目录: ${LOG_DIR}" >> "$LOG"
+echo "  上传目录: ${UPLOAD_DIR}" >> "$LOG"
+env | grep -E "^TRIM_|^wizard_" | sort >> "$LOG" 2>/dev/null || true
+
+# 保存安装配置（供后续启动脚本读取）
+INSTALL_CONF="${DATA_DIR}/install.conf"
+cat > "$INSTALL_CONF" <<EOF
+# 安装时配置 - 由 install_init 自动生成
+WIZARD_ADMIN_USER="${wizard_admin_user:-admin}"
+WIZARD_ADMIN_PASS="${wizard_admin_pass:-admin123}"
+WIZARD_APP_PORT="${wizard_app_port:-3008}"
+WIZARD_SESSION_SECRET="${wizard_session_secret:-}"
+EOF
+echo "  安装配置已保存: ${INSTALL_CONF}" >> "$LOG"
+
+echo "  安装前初始化完成" >> "$LOG"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] install_init done" >> "$LOG"
+echo "" >> "$LOG"
+exit 0

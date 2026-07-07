@@ -1,0 +1,57 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{if .user}}编辑用户{{else}}添加用户{{end}} - 管理后台</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <script src="/static/js/common.js"></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="admin-layout">
+        {{template "partials/admin_sidebar.html" dict "activeTab" "users" "appName" .appName}}
+
+        <div class="admin-main">
+            {{template "partials/admin_header.html" dict "title" .title "breadcrumbFirst" "系统管理" "nickname" .nickname "userAvatar" .userAvatar}}
+
+            <main class="admin-content">
+                <div class="admin-page-title">
+                    <span>{{if .user}}编辑用户{{else}}添加用户{{end}}</span>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-body">
+                        {{if .error}}<div class="alert alert-error">{{.error}}</div>{{end}}
+                        <form method="post" class="admin-form" action="{{if .user}}/admin/users/{{.user.ID}}/edit{{else}}/admin/users/new{{end}}">
+                            <div class="form-item">
+                                <label class="form-label">用户名</label>
+                                <input type="text" class="form-input" name="username" value="{{if .user}}{{.user.Username}}{{end}}" required>
+                            </div>
+                            <div class="form-item">
+                                <label class="form-label">昵称</label>
+                                <input type="text" class="form-input" name="nickname" value="{{if .user}}{{.user.Nickname}}{{end}}">
+                            </div>
+                            <div class="form-item">
+                                <label class="form-label">密码{{if .user}}（留空不修改）{{end}}</label>
+                                <input type="password" class="form-input" name="password" {{if not .user}}required{{end}} minlength="6">
+                            </div>
+                            <div class="form-item">
+                                <label class="form-label">角色</label>
+                                <select class="form-select" name="role">
+                                    <option value="user" {{if and .user (eq .user.Role "user")}}selected{{end}}>普通用户</option>
+                                    <option value="admin" {{if and .user (eq .user.Role "admin")}}selected{{end}}>管理员</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">{{if .user}}保存{{else}}创建{{end}}</button>
+                                <a href="/admin/users" class="btn btn-default">取消</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

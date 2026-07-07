@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>登录 - {{.appName}}</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/room.css">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <div class="auth-brand-icon">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity=".3"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h1>{{.appName}}</h1>
+                <p>登录您的账号</p>
+            </div>
+            {{if .error}}
+            <div class="alert alert-error">{{.error}}</div>
+            {{end}}
+            <form class="auth-form" method="post" action="/room/login">
+                <div class="form-item">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-input" name="username" placeholder="请输入用户名" required autofocus>
+                </div>
+                <div class="form-item">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" name="password" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn btn-primary">登录</button>
+            </form>
+            <div class="auth-footer">
+                还没有账号？<a href="/room/register">立即注册</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

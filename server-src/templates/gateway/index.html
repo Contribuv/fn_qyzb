@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{.title}} - {{.appName}}</title>
+    <link rel="stylesheet" href="{{.prefix}}/static/css/common.css">
+    <script src="{{.prefix}}/static/js/common.js"></script>
+    <link rel="stylesheet" href="{{.prefix}}/static/css/gateway.css">
+</head>
+<body>
+    <div id="app">
+        <div class="gateway-page">
+            <div class="gateway-header">
+                <div class="logo">千盈助播 · 公网访问配置</div>
+                <span class="help-toggle" id="helpToggle" title="为什么需要反向代理？">?</span>
+            </div>
+            <div class="gateway-content">
+                <div class="gateway-grid">
+                    <div class="gateway-card config-card">
+                        <h2>
+                            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            反向代理配置
+                        </h2>
+                        <div class="form-item">
+                            <label class="form-label">域名</label>
+                            <select class="form-select" id="domainSelect">
+                                <option value="">加载中...</option>
+                            </select>
+                        </div>
+                        <div class="form-item">
+                            <label class="form-label">HTTPS 端口</label>
+                            <div class="port-input-row">
+                                <input type="number" class="form-input port-input" id="portInput" value="7786" min="1" max="65535">
+                                <span class="port-status" id="portStatus">
+                                    <span class="port-status-dot"></span>
+                                    <span class="port-status-text" id="portStatusText">检测中...</span>
+                                </span>
+                            </div>
+                            <div class="port-suggest" id="portSuggest" style="display:none;">
+                                <span class="port-suggest-text">端口被占用，试试：</span>
+                                <button class="port-suggest-btn" id="suggestBtn1">7787</button>
+                                <button class="port-suggest-btn" id="suggestBtn2">7788</button>
+                            </div>
+                            <div class="form-hint-warning">⚠ 路由器需将该端口转发到 NAS 内网 IP，否则外网无法访问</div>
+                        </div>
+                        <div class="action-row">
+                            <button class="btn btn-primary" id="startBtn" onclick="startProxy()">启动</button>
+                            <button class="btn btn-danger" id="stopBtn" onclick="stopProxy()" style="display:none;">停止</button>
+                            <button class="btn btn-default" onclick="reloadCert()">重载证书</button>
+                        </div>
+                    </div>
+
+                    <div class="gateway-card status-card">
+                        <h2>
+                            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                            </svg>
+                            运行状态
+                        </h2>
+                        <div class="status-row">
+                            <div class="status-label">状态</div>
+                            <div class="status-value">
+                                <span class="status-stopped" id="statusText">
+                                    <span class="status-dot"></span>未启动
+                                </span>
+                            </div>
+                        </div>
+                        <div class="status-row">
+                            <div class="status-label">公网地址</div>
+                            <div class="status-value">
+                                <div class="url-box" id="urlBox" style="display:none;">
+                                    <span id="proxyUrl">--</span>
+                                    <button class="copy-btn" onclick="copyUrl()">复制</button>
+                                </div>
+                                <span id="noUrl" style="color:#8c8c8c;">启动后显示</span>
+                            </div>
+                        </div>
+                        <div class="status-row">
+                            <div class="status-label">操作</div>
+                            <div class="status-value">
+                                <button class="btn btn-primary btn-sm" id="openBtn" onclick="openAdmin()" style="display:none;">打开管理后台 ↗</button>
+                            </div>
+                        </div>
+                        <div class="status-row">
+                            <div class="status-label">客户端</div>
+                            <div class="status-value">
+                                <a class="btn btn-default btn-sm" href="{{.prefix}}/static/soft/助播提词器.exe" download="助播提词器.exe">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                    下载提词器
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gateway-card help-card" id="helpCard">
+                    <h2>
+                        <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        为什么需要配置反向代理？
+                    </h2>
+                    <div class="info-box">
+                        <ul>
+                            <li>桌面端在外网环境也能连接使用（远程提词）</li>
+                            <li>手机、平板等移动设备通过浏览器随时访问</li>
+                            <li>HTTPS 加密传输，保障数据安全</li>
+                            <li>支持多终端同时在线协作</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="gateway-card log-card">
+                    <h2>
+                        <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        实时日志
+                    </h2>
+                    <div class="log-box" id="logBox">
+                        <div class="log-line log-info">[系统] 等待反向代理启动...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>window.GATEWAY_PREFIX = '{{.prefix}}';</script>
+    <script src="{{.prefix}}/static/js/gateway.js"></script>
+</body>
+</html>
