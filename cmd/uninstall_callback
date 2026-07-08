@@ -5,8 +5,10 @@
 if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
     _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
     SHARE_LOG_DIR="${_SHARE_BASE}/logs"
+    SHARE_UPLOAD_DIR="${_SHARE_BASE}/uploads"
 else
     SHARE_LOG_DIR=""
+    SHARE_UPLOAD_DIR=""
 fi
 
 # 日志目录：优先共享目录，回退到 PKGVAR
@@ -18,20 +20,72 @@ else
     LOG_DIR="/tmp/fn_qyzb/logs"
 fi
 
-mkdir -p "$LOG_DIR"
+# 数据目录（数据库等）：始终在 PKGVAR 下
+if [ -n "$TRIM_PKGVAR" ]; then
+    DATA_DIR="${TRIM_PKGVAR}/data"
+else
+    DATA_DIR="/tmp/fn_qyzb/data"
+fi
+
+# 上传目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_UPLOAD_DIR" ]; then
+    UPLOAD_DIR="$SHARE_UPLOAD_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    UPLOAD_DIR="${TRIM_PKGVAR}/uploads"
+else
+    UPLOAD_DIR="/tmp/fn_qyzb/uploads"
+fi
+
+mkdir -p "$LOG_DIR" 2>/dev/null || true
 LOG="${LOG_DIR}/uninstall.log"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === UNINSTALL CALLBACK ===" >> "$LOG"
 echo "  卸载后回调开始" >> "$LOG"
 echo "  卸载模式: ${wizard_uninstall_mode:-keep_db}" >> "$LOG"
+echo "  数据目录: ${DATA_DIR}" >> "$LOG"
+echo "  上传目录: ${UPLOAD_DIR}" >> "$LOG"
+echo "  日志目录: ${LOG_DIR}" >> "$LOG"
 
 if [ "$wizard_uninstall_mode" = "delete_db" ]; then
-    echo "  用户选择删除所有数据" >> "$LOG"
+    echo "  用户选择删除所有数据，开始清理..." >> "$LOG"
+
+    # 删除数据库目录
+    if [ -d "$DATA_DIR" ]; then
+        rm -rf "$DATA_DIR"
+        echo "  已删除数据目录: ${DATA_DIR}" >> "$LOG"
+    else
+        echo "  数据目录不存在: ${DATA_DIR}" >> "$LOG"
+    fi
+
+    # 删除上传目录
+    if [ -d "$UPLOAD_DIR" ]; then
+        rm -rf "$UPLOAD_DIR"
+        echo "  已删除上传目录: ${UPLOAD_DIR}" >> "$LOG"
+    else
+        echo "  上传目录不存在: ${UPLOAD_DIR}" >> "$LOG"
+    fi
+
+    # 删除日志目录（最后写日志，所以先记录再删除）
+    echo "  即将删除日志目录: ${LOG_DIR}" >> "$LOG"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] uninstall_callback done (data deleted)" >> "$LOG"
+    echo "" >> "$LOG"
+
+    # 删除日志目录（此时日志已写入，可以安全删除）
+    if [ -n "$SHARE_LOG_DIR" ]; then
+        # 共享日志目录只删除本应用的部分
+        rm -rf "$SHARE_LOG_DIR" 2>/dev/null || true
+    elif [ -n "$TRIM_PKGVAR" ]; then
+        rm -rf "${TRIM_PKGVAR}/logs" 2>/dev/null || true
+    fi
+
+    # 清理 PKGVAR 下残留
+    if [ -n "$TRIM_PKGVAR" ] && [ -d "$TRIM_PKGVAR" ]; then
+        rm -rf "${TRIM_PKGVAR}/data" "${TRIM_PKGVAR}/uploads" "${TRIM_PKGVAR}/logs" 2>/dev/null || true
+    fi
 else
-    echo "  用户选择保留数据" >> "$LOG"
+    echo "  用户选择保留数据，跳过清理" >> "$LOG"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] uninstall_callback done (data kept)" >> "$LOG"
+    echo "" >> "$LOG"
 fi
 
-echo "  应用卸载完成" >> "$LOG"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] uninstall_callback done" >> "$LOG"
-echo "" >> "$LOG"
 exit 0

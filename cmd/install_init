@@ -50,12 +50,22 @@ env | grep -E "^TRIM_|^wizard_" | sort >> "$LOG" 2>/dev/null || true
 
 # 保存安装配置（供后续启动脚本读取）
 INSTALL_CONF="${DATA_DIR}/install.conf"
+
+# 生成固定的会话密钥（如果已存在则保留，避免重启后 Cookie 失效）
+SESSION_SECRET=""
+if [ -f "$INSTALL_CONF" ]; then
+    SESSION_SECRET=$(grep "^WIZARD_SESSION_SECRET=" "$INSTALL_CONF" 2>/dev/null | sed 's/^WIZARD_SESSION_SECRET="//;s/"$//' || true)
+fi
+if [ -z "$SESSION_SECRET" ]; then
+    SESSION_SECRET=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32)
+fi
+
 cat > "$INSTALL_CONF" <<EOF
 # 安装时配置 - 由 install_init 自动生成
 WIZARD_ADMIN_USER="${wizard_admin_user:-admin}"
 WIZARD_ADMIN_PASS="${wizard_admin_pass:-admin123}"
 WIZARD_APP_PORT="${wizard_app_port:-3008}"
-WIZARD_SESSION_SECRET="${wizard_session_secret:-}"
+WIZARD_SESSION_SECRET="${SESSION_SECRET}"
 EOF
 echo "  安装配置已保存: ${INSTALL_CONF}" >> "$LOG"
 
