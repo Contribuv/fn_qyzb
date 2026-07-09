@@ -188,3 +188,36 @@ MIT License
 ## 维护者
 
 - 豪子 - [GitHub](https://github.com/Contribuv)
+
+## 版本日志
+
+### v1.0.3 (2026-07-09)
+- 修复：同一端口同时支持 HTTP 和 HTTPS，HTTP 自动 301 跳转到 HTTPS
+- 修复：并发请求下网关前缀互相覆盖导致 CSS/JS 路径错误（goroutine ID 隔离）
+- 修复：反向代理 gzip 压缩数据可能损坏（复制独立副本）
+- 修复：移动端 CSS/JS 偶发加载失败（增加 Cache-Control 头）
+- 修复：反代重启后不会自动恢复（配置持久化 + 自动重启）
+
+### v1.0.2 (2026-07-09)
+- 修复：网关 404（socket 路径不一致，ARM 架构）
+- 修复：登录按钮变形（admin.css 全局覆盖 .btn 样式）
+- 修复：网关页面限制内网访问（去除 RequireLocalNetwork）
+- 修复：安装向导密码不生效（initDefaultAdmin 每次启动对比更新）
+- 修复：卸载向导"删除数据"不执行（uninstall_callback 补充删除逻辑）
+- 修复：端口直连/反代访问强制 301 到 /app/fn_qyzb（区分 TCP/Unix Socket 来源）
+- 新增：网关页面显示内网地址+端口超链接
+- 新增：Session Secret 持久化（避免重启后 Cookie 失效）
+
+### v1.0.1 (2026-07-08)
+- 修复：统一网关 404（重定向路径缺少前缀）
+- 修复：模板路径硬编码导致网关模式下 CSS/JS/链接 404
+- 修复：模板嵌套 {{.ID}} 语法错误导致 500
+- 修复：头像/WebSocket 路径在网关模式下 404
+- 新增：GitHub Actions 工作流自动编译二进制
+
+### v1.0.0 (2026-07-07)
+- Go 重构版本，原生二进制高性能
+- SQLite 本地数据库，零外部依赖
+- 内置反向代理，支持公网域名 HTTPS 访问
+- 支持 x86_64 / ARM64 双架构
+- 飞牛 NAS FPK 安装包
