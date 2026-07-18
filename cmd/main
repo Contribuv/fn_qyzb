@@ -119,6 +119,12 @@ start() {
         rm -f "$PID_FILE"
     fi
 
+    # 清理残留的 socket 文件（系统重启后进程已死但 socket 文件可能残留）
+    rm -f "/var/apps/fn_qyzb/target/app.sock" 2>/dev/null || true
+    if [ -n "$TRIM_APPDEST" ]; then
+        rm -f "${TRIM_APPDEST}/target/app.sock" 2>/dev/null || true
+    fi
+
     log "[1/6] 检测二进制文件..."
     if [ ! -x "$SERVER_BIN" ]; then
         chmod +x "$SERVER_BIN" 2>/dev/null || true
@@ -302,13 +308,13 @@ stop() {
 }
 
 status() {
+    # 优先检查 PID 文件和进程是否存活
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
         exit 0
     fi
+    # 检查 TCP 端口是否在监听
     ss -tlnp 2>/dev/null | grep -q ":${APP_PORT}" && exit 0
-    if [ -n "$TRIM_APPDEST" ] && [ -S "${TRIM_APPDEST}/target/app.sock" ]; then
-        exit 0
-    fi
+    # 不再仅凭 socket 文件存在就认为应用在运行（可能是残留文件）
     exit 3
 }
 
