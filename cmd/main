@@ -172,31 +172,48 @@ start() {
     export GATEWAY_PREFIX="$GATEWAY_PREFIX"
 
     # 飞牛网关(nginx)查找 socket 路径: /var/apps/{appname}/target/{gatewaySocket}
-    # 优先使用飞牛系统提供的 UNIX_SOCKET 环境变量
-    if [ -n "$UNIX_SOCKET" ]; then
-        export GATEWAY_SOCKET="$UNIX_SOCKET"
+    # 系统重启后 /var 可能被清空，需要确保目录存在
+    GATEWAY_SOCK_PATH="/var/apps/fn_qyzb/target/app.sock"
+
+    # 优先使用飞牛系统提供的 UNIX_SOCKET 环境变量（如果是绝对路径）
+    if [ -n "$UNIX_SOCKET" ] && [ "${UNIX_SOCKET:0:1}" = "/" ]; then
+        GATEWAY_SOCK_PATH="$UNIX_SOCKET"
         log "  统一网关(飞牛系统): ${GATEWAY_PREFIX} → ${UNIX_SOCKET}"
-    elif [ -n "$TRIM_APPDEST" ] && [ -d "$TRIM_APPDEST" ]; then
-        # 飞牛未提供 UNIX_SOCKET，在 TRIM_APPDEST/target 下创建
-        TARGET_DIR="${TRIM_APPDEST}/target"
-        mkdir -p "$TARGET_DIR" 2>/dev/null || true
-        GATEWAY_SOCK_PATH="${TARGET_DIR}/app.sock"
-        export GATEWAY_SOCKET="$GATEWAY_SOCK_PATH"
-        log "  统一网关(TRIM_APPDEST): ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
+    elif [ -n "$UNIX_SOCKET" ]; then
+        # UNIX_SOCKET 是相对路径（如 app.sock），拼接到 /var/apps/fn_qyzb/target/
+        GATEWAY_SOCK_PATH="/var/apps/fn_qyzb/target/${UNIX_SOCKET}"
+        log "  统一网关(飞牛系统相对路径): ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
     else
-        GATEWAY_SOCK_PATH="/var/apps/fn_qyzb/target/app.sock"
-        export GATEWAY_SOCKET="$GATEWAY_SOCK_PATH"
         log "  统一网关(默认): ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
     fi
 
-    # 导出备用 socket 路径，供 Go 应用在 /var/apps 路径也创建 socket
-    # 这样无论 nginx 查找哪个路径都能找到
-    export EXTRA_SOCKET_PATH="/var/apps/fn_qyzb/target/app.sock"
-    mkdir -p "/var/apps/fn_qyzb/target" 2>/dev/null || true
+    # 确保 socket 目录存在，系统重启后 /var 可能被清空
+    SOCK_DIR=$(dirname "$GATEWAY_SOCK_PATH")
+    mkdir -p "$SOCK_DIR" 2>/dev/null
+    if [ ! -d "$SOCK_DIR" ]; then
+        # 权限不足，尝试备用路径（TRIM_APPDEST 下的 target 目录）
+        log "  WARN: 无法创建 socket 目录 $SOCK_DIR，尝试备用路径"
+        if [ -n "$TRIM_APPDEST" ]; then
+            ALT_SOCK_DIR="${TRIM_APPDEST}/target"
+            mkdir -p "$ALT_SOCK_DIR" 2>/dev/null || true
+            GATEWAY_SOCK_PATH="${ALT_SOCK_DIR}/app.sock"
+            log "  备用 socket 路径: ${GATEWAY_SOCK_PATH}"
+        fi
+    fi
+    export GATEWAY_SOCKET="$GATEWAY_SOCK_PATH"
 
-    # 尝试创建 /var/apps/fn_qyzb 符号链接指向 TRIM_APPDEST（如果不存在）
-    if [ -n "$TRIM_APPDEST" ] && [ ! -e "/var/apps/fn_qyzb" ]; then
-        ln -sf "$TRIM_APPDEST" "/var/apps/fn_qyzb" 2>/dev/null && log "  已创建符号链接: /var/apps/fn_qyzb → $TRIM_APPDEST" || log "  WARN: 无法创建符号链接 /var/apps/fn_qyzb"
+    # 导出备用 socket 路径，Go 应用会同时在两个路径创建 socket
+    # 确保无论 nginx 查找哪个路径都能找到
+    EXTRA_SOCK="/var/apps/fn_qyzb/target/app.sock"
+    if [ "$GATEWAY_SOCK_PATH" != "$EXTRA_SOCK" ]; then
+        export EXTRA_SOCKET_PATH="$EXTRA_SOCK"
+        mkdir -p "$(dirname "$EXTRA_SOCK")" 2>/dev/null || true
+    else
+        # 主路径就是 /var/apps 路径，额外在 TRIM_APPDEST/target 也创建
+        if [ -n "$TRIM_APPDEST" ]; then
+            export EXTRA_SOCKET_PATH="${TRIM_APPDEST}/target/app.sock"
+            mkdir -p "${TRIM_APPDEST}/target" 2>/dev/null || true
+        fi
     fi
 
     log "启动服务..."
@@ -271,14 +288,13 @@ stop() {
     fi
 
     log "[3/3] 清理 socket 文件..."
-    if [ -n "$GATEWAY_SOCK_PATH" ] && [ -S "$GATEWAY_SOCK_PATH" ]; then
-        rm -f "$GATEWAY_SOCK_PATH"
-    fi
-
-    # 清理可能残留的两个路径 socket
+    # 清理所有可能的 socket 路径
     rm -f "/var/apps/fn_qyzb/target/app.sock" 2>/dev/null || true
     if [ -n "$TRIM_APPDEST" ]; then
         rm -f "${TRIM_APPDEST}/target/app.sock" 2>/dev/null || true
+    fi
+    if [ -n "$GATEWAY_SOCK_PATH" ]; then
+        rm -f "$GATEWAY_SOCK_PATH" 2>/dev/null || true
     fi
 
     log "停止完成"

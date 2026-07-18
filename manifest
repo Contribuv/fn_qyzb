@@ -1,5 +1,5 @@
 appname               = fn_qyzb
-version               = 1.0.5
+version               = 1.0.6
 display_name          = 千盈助播
 desc                  = 房产、垂直行业直播助播提词系统，支持多房间实时消息同步<br><br>**主要功能**<br>• 多房间同步提词，主持人与助理实时协作<br>• 提词内容字体大小、透明度可自由调节<br>• 提词窗口支持置顶显示，不遮挡直播画面<br>• 完整的用户管理体系，包含管理员后台<br>• 内置反向代理功能，支持公网域名 HTTPS 访问<br>• 支持 x86 和 ARM 架构<br><br>**使用说明**<br>• 安装时设置管理员账号和服务监听端口<br>• 数据文件统一存放于 data/ 子目录<br>• 卸载时可选择保留或删除数据库<br>• 无需额外依赖，安装即可使用
 platform              = all
@@ -16,4 +16,4 @@ maintainer            = 豪子
 maintainer_url        = https://github.com/Contribuv/fn_qyzb
 distributor           = 豪子
 distributor_url       = https://github.com/Contribuv/fn_qyzb
-changelog             = v1.0.5 - 网关页面UI重构、证书规则优化、访问限制
+changelog             = v1.0.6 - 修复系统重启后统一网关socket丢失问题
