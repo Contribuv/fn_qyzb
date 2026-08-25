@@ -1,0 +1,46 @@
+#!/bin/bash
+### 配置修改后回调 - 需要重启应用
+
+# ---- Node.js 运行时环境 ----
+NODE_RUNTIME="/var/apps/nodejs_v22/target/bin"
+if [ -d "$NODE_RUNTIME" ]; then
+    export PATH="${NODE_RUNTIME}:$PATH"
+fi
+
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    DATA_DIR="${_SHARE_BASE}/data"
+    LOG_DIR="${_SHARE_BASE}/logs"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    DATA_DIR="${TRIM_PKGVAR}/data"
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    DATA_DIR="/tmp/fn_qyzb/data"
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+mkdir -p "$LOG_DIR"
+LOG="${LOG_DIR}/config.log"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === CONFIG CALLBACK ===" >> "$LOG"
+echo "  配置修改后回调开始" >> "$LOG"
+
+PID_FILE=""
+if [ -n "$TRIM_PKGVAR" ]; then
+    PID_FILE="${TRIM_PKGVAR}/app.pid"
+fi
+
+if [ -n "$PID_FILE" ] && [ -f "$PID_FILE" ]; then
+    PID=$(cat "$PID_FILE")
+    if kill -0 "$PID" 2>/dev/null; then
+        kill "$PID" 2>/dev/null
+        sleep 1
+        kill -9 "$PID" 2>/dev/null
+        echo "  已重启应用进程 PID=${PID}" >> "$LOG"
+    fi
+    rm -f "$PID_FILE"
+fi
+
+echo "  配置修改完成，应用将自动重启" >> "$LOG"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] config_callback done" >> "$LOG"
+echo "" >> "$LOG"
+exit 0
