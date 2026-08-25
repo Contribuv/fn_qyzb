@@ -1,0 +1,317 @@
+#!/bin/bash
+# ============================================================
+# 千盈助播 - 生命周期管理脚本 (Go 版本)
+# fnOS Native App: cmd/main
+# 参考: https://developer.fnnas.com/docs/core-concepts/framework
+# ============================================================
+
+VAR_DIR="${TRIM_PKGVAR}"
+PID_FILE="${VAR_DIR}/app.pid"
+APP_DIR="${TRIM_APPDEST}/server"
+
+# ===== 路径解析（统一模板）=====
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    SHARE_LOG_DIR="${_SHARE_BASE}/logs"
+    SHARE_UPLOAD_DIR="${_SHARE_BASE}/uploads"
+else
+    SHARE_LOG_DIR=""
+    SHARE_UPLOAD_DIR=""
+fi
+
+# 日志目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_LOG_DIR" ]; then
+    LOG_DIR="$SHARE_LOG_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+
+# 数据目录（数据库等）：始终在 PKGVAR 下
+if [ -n "$TRIM_PKGVAR" ]; then
+    DATA_DIR="${TRIM_PKGVAR}/data"
+else
+    DATA_DIR="/tmp/fn_qyzb/data"
+fi
+
+# 上传目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_UPLOAD_DIR" ]; then
+    UPLOAD_DIR="$SHARE_UPLOAD_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    UPLOAD_DIR="${TRIM_PKGVAR}/uploads"
+else
+    UPLOAD_DIR="/tmp/fn_qyzb/uploads"
+fi
+
+export DB_PATH="${DATA_DIR}/qyzb.db"
+export UPLOAD_DIR
+
+mkdir -p "$DATA_DIR" 2>/dev/null || true
+mkdir -p "$UPLOAD_DIR" 2>/dev/null || true
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+
+# 读取安装配置（保存了 wizard 变量）
+INSTALL_CONF="${DATA_DIR}/install.conf"
+if [ -f "$INSTALL_CONF" ]; then
+    source "$INSTALL_CONF"
+fi
+
+# 应用端口：优先安装配置，再回退 wizard 变量，最后默认 3008
+if [ -n "$WIZARD_APP_PORT" ]; then
+    APP_PORT="$WIZARD_APP_PORT"
+elif [ -n "$wizard_app_port" ]; then
+    APP_PORT="$wizard_app_port"
+else
+    APP_PORT="3008"
+fi
+export PORT="${APP_PORT}"
+
+APP_LOG="${LOG_DIR}/app.log"
+DEBUG_LOG="${LOG_DIR}/debug.log"
+mkdir -p "$(dirname "$APP_LOG")" 2>/dev/null || true
+
+# 检测架构
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64) BIN_NAME="fn_qyzb-server-amd64" ;;
+    aarch64) BIN_NAME="fn_qyzb-server-arm64" ;;
+    *) BIN_NAME="fn_qyzb-server-amd64" ;;
+esac
+SERVER_BIN="${APP_DIR}/${BIN_NAME}"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$APP_LOG"
+}
+
+fatal() {
+    log "FATAL: $*"
+    [ -n "$TRIM_TEMP_LOGFILE" ] && echo "FATAL: $*" >> "$TRIM_TEMP_LOGFILE"
+    exit 1
+}
+
+start() {
+    log "=== START ==="
+
+    if [ -f "$PID_FILE" ]; then
+        OLD=$(cat "$PID_FILE")
+        if kill -0 "$OLD" 2>/dev/null; then
+            log "进程已在运行 (PID=$OLD)"
+            exit 0
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    # 清理残留的 socket 文件（系统重启后进程已死但 socket 文件可能残留）
+    rm -f "/var/apps/fn_qyzb/target/app.sock" 2>/dev/null || true
+    if [ -n "$TRIM_APPDEST" ]; then
+        rm -f "${TRIM_APPDEST}/target/app.sock" 2>/dev/null || true
+    fi
+
+    log "[1/6] 检测二进制文件..."
+    if [ ! -x "$SERVER_BIN" ]; then
+        chmod +x "$SERVER_BIN" 2>/dev/null || true
+    fi
+    if [ ! -x "$SERVER_BIN" ]; then
+        fatal "二进制文件不存在或不可执行: $SERVER_BIN"
+    fi
+    log "  架构: $ARCH"
+    log "  二进制: $BIN_NAME"
+
+    log "[2/6] 配置数据库..."
+    log "  数据库路径: $DB_PATH"
+
+    log "[3/6] 配置管理员账号..."
+    if [ -n "$WIZARD_ADMIN_USER" ]; then
+        _admin_user="$WIZARD_ADMIN_USER"
+    elif [ -n "$wizard_admin_user" ]; then
+        _admin_user="$wizard_admin_user"
+    else
+        _admin_user="admin"
+    fi
+    if [ -n "$WIZARD_ADMIN_PASS" ]; then
+        _admin_pass="$WIZARD_ADMIN_PASS"
+    elif [ -n "$wizard_admin_pass" ]; then
+        _admin_pass="$wizard_admin_pass"
+    else
+        _admin_pass="admin123"
+    fi
+    export ADMIN_USERNAME="${_admin_user}"
+    export ADMIN_PASSWORD="${_admin_pass}"
+    log "  管理员账号: ${ADMIN_USERNAME}"
+
+    log "[4/6] 配置会话密钥..."
+    if [ -n "$WIZARD_SESSION_SECRET" ]; then
+        export SESSION_SECRET="$WIZARD_SESSION_SECRET"
+    elif [ -n "$wizard_session_secret" ]; then
+        export SESSION_SECRET="$wizard_session_secret"
+    else
+        export SESSION_SECRET="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32)"
+    fi
+
+    log "[5/6] 配置统一网关..."
+    GATEWAY_PREFIX="/app/fn_qyzb"
+    export GATEWAY_PREFIX="$GATEWAY_PREFIX"
+
+    # 飞牛网关(nginx)查找 socket 路径: /var/apps/{appname}/target/{gatewaySocket}
+    # 系统重启后 /var 可能被清空，需要确保目录存在
+    GATEWAY_SOCK_PATH="/var/apps/fn_qyzb/target/app.sock"
+
+    # 优先使用飞牛系统提供的 UNIX_SOCKET 环境变量（如果是绝对路径）
+    if [ -n "$UNIX_SOCKET" ] && [ "${UNIX_SOCKET:0:1}" = "/" ]; then
+        GATEWAY_SOCK_PATH="$UNIX_SOCKET"
+        log "  统一网关(飞牛系统): ${GATEWAY_PREFIX} → ${UNIX_SOCKET}"
+    elif [ -n "$UNIX_SOCKET" ]; then
+        # UNIX_SOCKET 是相对路径（如 app.sock），拼接到 /var/apps/fn_qyzb/target/
+        GATEWAY_SOCK_PATH="/var/apps/fn_qyzb/target/${UNIX_SOCKET}"
+        log "  统一网关(飞牛系统相对路径): ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
+    else
+        log "  统一网关(默认): ${GATEWAY_PREFIX} → ${GATEWAY_SOCK_PATH}"
+    fi
+
+    # 确保 socket 目录存在，系统重启后 /var 可能被清空
+    SOCK_DIR=$(dirname "$GATEWAY_SOCK_PATH")
+    mkdir -p "$SOCK_DIR" 2>/dev/null
+    if [ ! -d "$SOCK_DIR" ]; then
+        # 权限不足，尝试备用路径（TRIM_APPDEST 下的 target 目录）
+        log "  WARN: 无法创建 socket 目录 $SOCK_DIR，尝试备用路径"
+        if [ -n "$TRIM_APPDEST" ]; then
+            ALT_SOCK_DIR="${TRIM_APPDEST}/target"
+            mkdir -p "$ALT_SOCK_DIR" 2>/dev/null || true
+            GATEWAY_SOCK_PATH="${ALT_SOCK_DIR}/app.sock"
+            log "  备用 socket 路径: ${GATEWAY_SOCK_PATH}"
+        fi
+    fi
+    export GATEWAY_SOCKET="$GATEWAY_SOCK_PATH"
+
+    # 导出备用 socket 路径，Go 应用会同时在两个路径创建 socket
+    # 确保无论 nginx 查找哪个路径都能找到
+    EXTRA_SOCK="/var/apps/fn_qyzb/target/app.sock"
+    if [ "$GATEWAY_SOCK_PATH" != "$EXTRA_SOCK" ]; then
+        export EXTRA_SOCKET_PATH="$EXTRA_SOCK"
+        mkdir -p "$(dirname "$EXTRA_SOCK")" 2>/dev/null || true
+    else
+        # 主路径就是 /var/apps 路径，额外在 TRIM_APPDEST/target 也创建
+        if [ -n "$TRIM_APPDEST" ]; then
+            export EXTRA_SOCKET_PATH="${TRIM_APPDEST}/target/app.sock"
+            mkdir -p "${TRIM_APPDEST}/target" 2>/dev/null || true
+        fi
+    fi
+
+    log "启动服务..."
+    log "  监听端口: ${APP_PORT}"
+    log "  日志目录: ${LOG_DIR}"
+    log "  上传目录: ${UPLOAD_DIR}"
+
+    cd "$APP_DIR" || fatal "无法进入应用目录: $APP_DIR"
+
+    nohup "$SERVER_BIN" >> "$DEBUG_LOG" 2>&1 &
+    SERVER_PID=$!
+    echo "$SERVER_PID" > "$PID_FILE"
+
+    sleep 1
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+        rm -f "$PID_FILE"
+        log "  启动失败日志:"
+        tail -20 "$DEBUG_LOG" | tee -a "$APP_LOG"
+        fatal "进程启动失败!"
+    fi
+
+    sleep 2
+    if kill -0 "$SERVER_PID" 2>/dev/null; then
+        log "  PID=$SERVER_PID"
+        log "=== 启动成功! 端口 ${APP_PORT} ==="
+        exit 0
+    else
+        rm -f "$PID_FILE"
+        fatal "进程 3s 内退出!"
+    fi
+}
+
+stop() {
+    log "=== STOP ==="
+
+    log "[1/3] 停止反向代理..."
+    if detect_rproxy; then
+        RPX_CONFIG="${TRIM_APPDEST}/data/rproxy-config.json"
+        if [ -f "$RPX_CONFIG" ]; then
+            RPX_API_PORT=$(grep -o '"api_port":[0-9]*' "$RPX_CONFIG" | grep -o '[0-9]*')
+            if [ -n "$RPX_API_PORT" ] && [ "$RPX_API_PORT" -gt 0 ] 2>/dev/null; then
+                curl -s -X POST "http://127.0.0.1:${RPX_API_PORT}/stop" 2>/dev/null && log "  反代已停止 (API方式)"
+            fi
+        fi
+        RPX_PROC=$(pgrep -f "qyzb-rproxy" 2>/dev/null || true)
+        if [ -n "$RPX_PROC" ]; then
+            kill "$RPX_PROC" 2>/dev/null
+            sleep 1
+            if kill -0 "$RPX_PROC" 2>/dev/null; then
+                kill -9 "$RPX_PROC" 2>/dev/null
+            fi
+            log "  反代进程已清理 (PID=$RPX_PROC)"
+        fi
+    fi
+
+    log "[2/3] 停止主服务..."
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            kill "$PID" 2>/dev/null
+            sleep 2
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -9 "$PID" 2>/dev/null
+            fi
+            log "  进程已停止 (PID=$PID)"
+        else
+            log "  进程不存在"
+        fi
+        rm -f "$PID_FILE"
+    else
+        log "  没有运行中的进程"
+    fi
+
+    log "[2/3] 清理 socket 文件..."
+    # 清理所有可能的 socket 路径
+    rm -f "/var/apps/fn_qyzb/target/app.sock" 2>/dev/null || true
+    if [ -n "$TRIM_APPDEST" ]; then
+        rm -f "${TRIM_APPDEST}/target/app.sock" 2>/dev/null || true
+    fi
+    if [ -n "$GATEWAY_SOCK_PATH" ]; then
+        rm -f "$GATEWAY_SOCK_PATH" 2>/dev/null || true
+    fi
+
+    log "停止完成"
+    exit 0
+}
+
+status() {
+    # 优先检查 PID 文件和进程是否存活
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        exit 0
+    fi
+    # 检查 TCP 端口是否在监听
+    ss -tlnp 2>/dev/null | grep -q ":${APP_PORT}" && exit 0
+    # 不再仅凭 socket 文件存在就认为应用在运行（可能是残留文件）
+    exit 3
+}
+
+uninstall() {
+    log "=== UNINSTALL ==="
+    stop
+    log "卸载完成"
+    exit 0
+}
+
+upgrade() {
+    log "=== UPGRADE ==="
+    stop
+    start
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    status) status ;;
+    uninstall) uninstall ;;
+    upgrade) upgrade ;;
+    *) echo "用法: $0 {start|stop|status|uninstall|upgrade}" ; exit 1 ;;
+esac

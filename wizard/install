@@ -1,0 +1,53 @@
+[
+    {
+        "stepTitle": "安装向导",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "<strong>欢迎使用千盈助播</strong><br><br>基于 Go + SQLite + WebSocket 的房产直播助播提词系统。<br><br>【核心功能】<br>• 多房间实时助播提词<br>• 主持人与助理实时消息同步<br>• 字体大小、透明度自由调节<br>• 窗口置顶，直播不遮挡<br>• 多用户体系，管理员后台<br>• 内置反向代理，支持公网访问<br>• 支持 x86 / ARM 平台<br><br>点击下一步设置管理员账号和端口。"
+            }
+        ]
+    },
+    {
+        "stepTitle": "管理员与端口",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "管理员账号用于登录后台管理，创建房间、管理用户。<br>监听端口默认为 3008，如提示端口被占用，请更换其他端口后重新安装。"
+            },
+            {
+                "type": "text",
+                "field": "wizard_admin_user",
+                "label": "管理员用户名",
+                "initValue": "admin",
+                "rules": [
+                    { "required": true, "message": "请输入管理员用户名" },
+                    { "min": 2, "max": 20, "message": "用户名长度应在2-20个字符之间" }
+                ]
+            },
+            {
+                "type": "password",
+                "field": "wizard_admin_pass",
+                "label": "管理员密码",
+                "rules": [
+                    { "required": true, "message": "请输入管理员密码" },
+                    { "min": 6, "message": "密码长度不能少于6位" }
+                ]
+            },
+            {
+                "type": "text",
+                "field": "wizard_app_port",
+                "label": "监听端口",
+                "initValue": "3008",
+                "rules": [
+                    { "required": true, "message": "请输入监听端口" },
+                    { "pattern": "^[0-9]+$", "message": "端口号必须是数字" }
+                ]
+            },
+            {
+                "type": "tips",
+                "helpText": "<div style=\"background:#ecfdf5;border:1px solid #10b981;border-radius:8px;padding:12px 16px;margin-top:8px;\"><div style=\"color:#065f46;font-weight:600;font-size:15px;margin-bottom:6px;\">使用说明</div><div style=\"color:#064e3b;font-size:13px;line-height:1.6;\"><strong>安装完成后，点击桌面图标即可打开应用。</strong><br>• 内网访问：<code style=\"background:#d1fae5;padding:2px 6px;border-radius:4px;\">http://飞牛IP:3008</code><br>• 公网访问：在应用内的「公网访问」中配置反向代理域名和证书<br>• 应用已接入统一网关，可通过桌面图标直接访问</div></div>"
+            }
+        ]
+    }
+]
