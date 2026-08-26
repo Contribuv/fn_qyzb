@@ -1,0 +1,14 @@
+{
+    "data-share": {
+        "shares": [
+            {
+                "name": "fn_qyzb",
+                "permission": {
+                    "rw": [
+                        "fn_qyzb"
+                    ]
+                }
+            }
+        ]
+    }
+}
