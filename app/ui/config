@@ -1,0 +1,15 @@
+{
+    ".url": {
+        "fn_qyzb.Application": {
+            "title": "千盈助播",
+            "desc": "房产直播助播提词系统",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "protocol": "",
+            "gatewaySocket": "app.sock",
+            "gatewayPrefix": "/app/fn_qyzb",
+            "url": "/app/fn_qyzb/gateway",
+            "allUsers": true
+        }
+    }
+}
