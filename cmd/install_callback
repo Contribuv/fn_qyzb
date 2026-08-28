@@ -1,0 +1,29 @@
+#!/bin/bash
+### 安装后回调
+
+# ===== 路径解析（统一模板）=====
+if [ -n "$TRIM_DATA_SHARE_PATHS" ]; then
+    _SHARE_BASE="${TRIM_DATA_SHARE_PATHS%%:*}"
+    SHARE_LOG_DIR="${_SHARE_BASE}/logs"
+else
+    SHARE_LOG_DIR=""
+fi
+
+# 日志目录：优先共享目录，回退到 PKGVAR
+if [ -n "$SHARE_LOG_DIR" ]; then
+    LOG_DIR="$SHARE_LOG_DIR"
+elif [ -n "$TRIM_PKGVAR" ]; then
+    LOG_DIR="${TRIM_PKGVAR}/logs"
+else
+    LOG_DIR="/tmp/fn_qyzb/logs"
+fi
+
+mkdir -p "$LOG_DIR"
+LOG="${LOG_DIR}/install.log"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] === INSTALL CALLBACK ===" >> "$LOG"
+echo "  安装后回调开始" >> "$LOG"
+echo "  应用安装完成" >> "$LOG"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] install_callback done" >> "$LOG"
+echo "" >> "$LOG"
+exit 0
